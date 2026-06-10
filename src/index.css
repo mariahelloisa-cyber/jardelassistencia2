@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-jadel-black: #090a0f;
+  --color-jadel-card: #12141c;
+  --color-jadel-gold: #e5b80b;
+  --color-jadel-gold-light: #fcd34d;
+}
+
+@theme inline {
+  --font-sans: 'Montserrat', sans-serif; /* <--- ADICIONE ESTA LINHA AQUI */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  /* ... o resto do código continua igual abaixo ... */ 
+}
+body {
+  background-color: #090a0f;
+  color: #ffffff;
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
