@@ -403,12 +403,8 @@ const Clientes = () => {
               {/* Bloco 2: Contatos e Acesso */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Telefone Fixo</label>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Celular</label>
                   <input type="text" placeholder="(00) 0000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Celular / WhatsApp *</label>
-                  <input type="text" required placeholder="(00) 00000-0000" value={celular} onChange={(e) => setCellular(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">E-mail</label>
