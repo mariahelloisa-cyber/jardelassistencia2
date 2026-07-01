@@ -6,7 +6,8 @@ import { supabase } from './supabaseClient';
 import { 
   Users, Package, Wrench, Smartphone, Home,
   ShieldCheck, ShoppingCart, DollarSign, 
-  ClipboardList, Monitor, LogOut, Upload, Loader2, X, Lock
+  ClipboardList, Monitor, LogOut, Upload, Loader2, X, Lock,
+  Eye, EyeOff 
 } from 'lucide-react';
 
 // Páginas externas importadas
@@ -201,7 +202,7 @@ const Dashboard = () => {
 };
 
 // ==========================================
-// 2. CLIENTES COMPLETO (COM CADASTRO E EDIÇÃO)
+// 2. CLIENTES COMPLETO (COM CADASTRO E EDIÇÃO EXPANDIDO)
 // ==========================================
 const Clientes = () => {
   const [clientes, setClientes] = React.useState([]);
@@ -209,10 +210,23 @@ const Clientes = () => {
   const [modalAberto, setModalAberto] = React.useState(false);
   const [enviando, setEnviando] = React.useState(false);
   const [clienteSendoEditado, setClienteSendoEditado] = React.useState(null);
+  const [verSenha, setVerSenha] = React.useState(false);
 
-  const [nome, setNome] = React.useState('');
+  // Novos estados expandidos para o formulário robusto
+  const [tipoCliente, setTipoCliente] = React.useState('consumidor');
+  const [cpfCnpj, setCpfCnpj] = React.useState('');
+  const [nome, setNome] = React.useState(''); 
   const [telefone, setTelefone] = React.useState('');
+  const [celular, setCelular] = React.useState('');
   const [email, setEmail] = React.useState('');
+  const [senha, setSenha] = React.useState('');
+  const [cep, setCep] = React.useState('');
+  const [rua, setRua] = React.useState('');
+  const [numero, setNumero] = React.useState('');
+  const [complemento, setComplemento] = React.useState('');
+  const [bairro, setBairro] = React.useState('');
+  const [cidade, setCidade] = React.useState('');
+  const [estado, setEstado] = React.useState('');
 
   const buscarClientes = async () => {
     setLoading(true);
@@ -223,26 +237,72 @@ const Clientes = () => {
 
   React.useEffect(() => { buscarClientes(); }, []);
 
+  // Autofetch de endereço inteligente por CEP (ViaCEP)
+  const handleCepChange = async (e) => {
+    const valor = e.target.value;
+    setCep(valor);
+    const cepLimpo = valor.replace(/\D/g, '');
+    if (cepLimpo.length === 8) {
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        const dadosEndereco = await res.json();
+        if (!dadosEndereco.erro) {
+          setRua(dadosEndereco.logradouro || '');
+          setBairro(dadosEndereco.bairro || '');
+          setCidade(dadosEndereco.localidade || '');
+          setEstado(dadosEndereco.uf || '');
+        }
+      } catch (err) {
+        console.error("Erro ao autocompletar CEP:", err);
+      }
+    }
+  };
+
   const fecharModal = () => {
-    setNome(''); setTelefone(''); setEmail('');
+    setTipoCliente('consumidor'); setCpfCnpj(''); setNome(''); setTelefone(''); 
+    setCelular(''); setEmail(''); setSenha(''); setCep(''); setRua(''); 
+    setNumero(''); setComplemento(''); setBairro(''); setCidade(''); setEstado('');
     setClienteSendoEditado(null); setModalAberto(false);
   };
 
   const prepararEdicao = (cliente) => {
-    setClienteSendoEditado(cliente); setNome(cliente.nome || ''); setTelefone(cliente.telefone || cliente.celular || ''); setEmail(cliente.email || '');
+    setClienteSendoEditado(cliente);
+    setTipoCliente(cliente.tipo_cliente || 'consumidor');
+    setCpfCnpj(cliente.cpf_cnpj || '');
+    setNome(cliente.nome || '');
+    setTelefone(cliente.telefone || '');
+    setCelular(cliente.celular || '');
+    setEmail(cliente.email || '');
+    setSenha(cliente.senha || '');
+    setCep(cliente.cep || '');
+    setRua(cliente.rua || '');
+    setNumero(cliente.numero || '');
+    setComplemento(cliente.complemento || '');
+    setBairro(cliente.bairro || '');
+    setCidade(cliente.cidade || '');
+    setEstado(cliente.estado || '');
     setModalAberto(true);
   };
 
   const salvarCliente = async (e) => {
     e.preventDefault();
     setEnviando(true);
-    const dados = { nome, telefone, celular: telefone, email };
+    
+    // Mapeamento exato de variáveis para colunas do banco Supabase
+    const dados = { 
+      tipo_cliente: tipoCliente, cpf_cnpj: cpfCnpj, nome, telefone, 
+      celular, email, senha, cep, rua, numero, complemento, 
+      bairro, city: cidade, cidade, estado 
+    };
+
     if (clienteSendoEditado) {
       await supabase.from('clientes').update(dados).eq('id', clienteSendoEditado.id);
     } else {
       await supabase.from('clientes').insert([dados]);
     }
-    fecharModal(); buscarClientes();
+    
+    fecharModal(); 
+    buscarClientes();
     setEnviando(false);
   };
 
@@ -251,7 +311,7 @@ const Clientes = () => {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold text-white tracking-tight">Clientes</h1>
-          <p className="text-zinc-500 text-sm mt-1">Gerenciamento completo da carteira de clientes.</p>
+          <p className="text-zinc-500 text-sm mt-1">Gerenciamento completo da carteira de clientes corporativos e consumidores.</p>
         </div>
         <button onClick={() => setModalAberto(true)} className="bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg cursor-pointer">
           + Novo Cliente
@@ -265,44 +325,167 @@ const Clientes = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 text-xs uppercase font-semibold">
-                <th className="p-4">Nome Completo</th><th className="p-4">WhatsApp / Telefone</th><th className="p-4">E-mail</th><th className="p-4">Ações</th>
+                <th className="p-4">Nome / Razão Social</th>
+                <th className="p-4">Tipo</th>
+                <th className="p-4">Contato (Celular/Whats)</th>
+                <th className="p-4">E-mail</th>
+                <th className="p-4">Localidade</th>
+                <th className="p-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
               {clientes.map((cliente) => (
                 <tr key={cliente.id} className="hover:bg-zinc-800/20 text-zinc-300">
-                  <td className="p-4 font-semibold text-white">{cliente.nome}</td>
-                  <td className="p-4 font-mono text-xs">{cliente.telefone || cliente.celular || '---'}</td>
+                  <td className="p-4 font-semibold text-white">
+                    {cliente.nome}
+                    <span className="block text-[10px] text-zinc-500 font-mono">{cliente.cpf_cnpj || 'Sem CPF/CNPJ'}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${cliente.tipo_cliente === 'fornecedor' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
+                      {cliente.tipo_cliente || 'consumidor'}
+                    </span>
+                  </td>
+                  <td className="p-4 font-mono text-xs">
+                    {cliente.celular || cliente.telefone || '---'}
+                  </td>
                   <td className="p-4 text-zinc-400 text-xs">{cliente.email || '---'}</td>
-                  <td className="p-4"><button onClick={() => prepararEdicao(cliente)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">Editar</button></td>
+                  <td className="p-4 text-zinc-400 text-xs">
+                    {cliente.cidade ? `${cliente.cidade} - ${cliente.estado || ''}` : '---'}
+                  </td>
+                  <td className="p-4">
+                    <button onClick={() => prepararEdicao(cliente)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">
+                      Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {clientes.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-zinc-500 text-xs uppercase tracking-wider">Nenhum cliente cadastrado.</td></tr>}
+              {clientes.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-8 text-center text-zinc-500 text-xs uppercase tracking-wider">
+                    Nenhum cliente cadastrado.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}
       </div>
 
+      {/* MODAL EXPANDIDO COM GRID DE FORMULÁRIO */}
       {modalAberto && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-6 shadow-2xl">
-            <h2 className="text-xl font-bold text-[#f4bc06] mb-5 uppercase tracking-wide text-center">{clienteSendoEditado ? 'Editar Cadastro' : 'Novo Cliente'}</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-2xl rounded-2xl p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-[#f4bc06] mb-5 uppercase tracking-wide text-center">
+              {clienteSendoEditado ? 'Editar Ficha do Cliente' : 'Ficha de Novo Cliente'}
+            </h2>
+            
             <form onSubmit={salvarCliente} className="space-y-4 text-sm">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Nome Completo *</label>
-                <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+              
+              {/* Bloco 1: Perfil de Identificação */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-zinc-950 p-4 rounded-xl border border-zinc-800/60">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Tipo de Cliente *</label>
+                  <select value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500">
+                    <option value="consumidor">Consumidor</option>
+                    <option value="fornecedor">Fornecedor</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">CPF / CNPJ</label>
+                  <input type="text" placeholder="000.000.000-00" value={cpfCnpj} onChange={(e) => setCpfCnpj(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Nome / Razão Social *</label>
+                  <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Telefone / WhatsApp</label>
-                <input type="text" placeholder="(00) 00000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+
+              {/* Bloco 2: Contatos e Acesso */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Telefone Fixo</label>
+                  <input type="text" placeholder="(00) 0000-0000" value={telefone} onChange={(e) => setTelefone(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Celular / WhatsApp *</label>
+                  <input type="text" required placeholder="(00) 00000-0000" value={celular} onChange={(e) => setCellular(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">E-mail</label>
+                  <input type="email" placeholder="exemplo@jadel.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Senha </label>
+                  <div className="relative">
+                    <input 
+                      type={verSenha ? "text" : "password"} 
+                      placeholder="••••••••" 
+                      value={senha} 
+                      onChange={(e) => setSenha(e.target.value)} 
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 pr-10 text-white focus:outline-none focus:border-amber-500" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setVerSenha(!verSenha)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-[#f4bc06] transition-colors cursor-pointer"
+                      title={verSenha ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                      {verSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">E-mail</label>
-                <input type="email" placeholder="cliente@provedor.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+
+              {/* Bloco 3: Endereço (Com AutoCEP integrado) */}
+              <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800/60 space-y-4">
+                <span className="text-[10px] font-bold tracking-wider text-amber-500 uppercase block">Dados de Endereço Residencial/Comercial</span>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">CEP</label>
+                    <input type="text" placeholder="00000-000" value={cep} onChange={handleCepChange} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500 font-mono text-xs" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Logradouro / Rua</label>
+                    <input type="text" value={rua} onChange={(e) => setRua(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Número</label>
+                    <input type="text" placeholder="S/N" value={numero} onChange={(e) => setNumero(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Complemento</label>
+                    <input type="text" placeholder="Apto, Bloco, Fundos..." value={complemento} onChange={(e) => setComplemento(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Bairro</label>
+                    <input type="text" value={bairro} onChange={(e) => setBairro(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Cidade</label>
+                    <input type="text" value={cidade} onChange={(e) => setCidade(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Estado (UF)</label>
+                    <input type="text" placeholder="EX: SE" maxLength="2" value={estado} onChange={(e) => setEstado(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500 uppercase font-mono" />
+                  </div>
+                </div>
               </div>
+
+              {/* Botões do rodapé */}
               <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 mt-6">
-                <button type="button" onClick={fecharModal} className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-white font-semibold transition-colors cursor-pointer">Cancelar</button>
-                <button type="submit" disabled={enviando} className="px-5 py-2.5 bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-black rounded-xl transition-colors cursor-pointer">{enviando ? 'Salvando...' : 'Salvar Cadastro'}</button>
+                <button type="button" onClick={fecharModal} className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-white font-semibold transition-colors cursor-pointer">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={enviando} className="px-5 py-2.5 bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-black rounded-xl transition-colors cursor-pointer">
+                  {enviando ? 'Salvando...' : 'Salvar Cadastro'}
+                </button>
               </div>
             </form>
           </div>
@@ -311,7 +494,6 @@ const Clientes = () => {
     </div>
   );
 };
-
 // ==========================================
 // 3. PRODUTOS COMPLETO (COM FOTO E GERENCIADOR)
 // ==========================================
@@ -568,118 +750,132 @@ const Servicos = () => {
 };
 
 // ==========================================
-// 5. ORDENS DE SERVIÇO COMPLETO (COM ARQUIVOS/FOTOS)
+// 5. COMPONENTE DE ORDENS DE SERVIÇO (CORRIGIDO)
 // ==========================================
 const OrdensServico = () => {
-  const [listaOS, setListaOS] = React.useState([]);
+  const [ordens, setOrdens] = React.useState([]);
   const [clientes, setClientes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [modalAberto, setModalAberto] = React.useState(false);
   const [enviando, setEnviando] = React.useState(false);
   const [osSendoEditada, setOsSendoEditada] = React.useState(null);
 
-  // Estados da Galeria de Evidências da O.S.
-  const [osParaGaleria, setOsParaGaleria] = React.useState(null);
-  const [fotosOS, setFotosOS] = React.useState([]);
-  const [carregandoFotos, setCarregandoFotos] = React.useState(false);
-  const [subindoMidia, setSubindoMidia] = React.useState(false);
-
-  // Campos do formulário de O.S.
+  // 1. Estados de Identificação e Controle Básicos
   const [clienteId, setClienteId] = React.useState('');
-  const [tecnico, setTecnico] = React.useState('jadelson santana souza');
-  const [status, setStatus] = React.useState('Orçamento');
-  const [dataInicial, setDataInicial] = React.useState(new Date().toISOString().split('T')[0]);
-  const [dataFinal, setDataFinal] = React.useState('');
-  const [garantiaDias, setGarantiaDias] = React.useState('0');
+  const [tecnicoResponsavel, setTecnicoResponsavel] = React.useState('');
+  const [status, setStatus] = React.useState('orçamento');
+  const [tipoSenha, setTipoSenha] = React.useState('');
+  const [dataInicio, setDataInicio] = React.useState('');
+  const [dataFim, setDataFim] = React.useState('');
+  const [garantiaDias, setGarantiaDias] = React.useState('');
   const [termoGarantia, setTermoGarantia] = React.useState('');
-  const [tipoSenha, setTipoSenha] = React.useState('Não existe');
-  const [descricaoProduto, setDescricaoProduto] = React.useState('');
-  const [defeito, setDefeito] = React.useState('');
-  const [valorTotal, setValorTotal] = React.useState('0.00');
+  const [precoFechado, setPrecoFechado] = React.useState('');
 
-  const buscarDados = async () => {
+  // 2. Estado de Upload de Arquivo do Laudo
+  const [arquivoLaudo, setArquivoLaudo] = React.useState(null);
+  const [laudoUrl, setLaudoUrl] = React.useState('');
+
+  // 3. Estados de Texto Longo
+  const [descricao, setDescricao] = React.useState('');
+  const [defeito, setDefeito] = React.useState('');
+  const [observacao, setObservacao] = React.useState('');
+  const [laudoTecnico, setLaudoTecnico] = React.useState('');
+
+  // 4. Estado Estruturado do Checklist Completo
+  const checklistInicial = {
+    alto_falante: 'Não Testado', auricular: 'Não Testado', bluetooth: 'Não Testado',
+    camera_traseira: 'Não Testado', flash: 'Não Testado', botao_power: 'Não Testado',
+    parafusos: 'Não Testado', wi_fi: 'Não Testado', microfone: 'Não Testado',
+    carcaca: 'Não Testado', vibra_call: 'Não Testado', tela: 'Não Testado',
+    bateria: 'Não Testado', camera_frontal: 'Não Testado', conector_carga: 'Não Testado',
+    botao_home: 'Não Testado', botao_volume: 'Não Testado', sensor_proximidade: 'Não Testado',
+    pegando_chip: 'Não Testado', biometria_faceid: 'Não Testado'
+  };
+  const [checklist, setChecklist] = React.useState(checklistInicial);
+
+  const carregarDados = async () => {
     setLoading(true);
-    const { data: osData } = await supabase.from('os').select('*, clientes(nome)').order('id', { ascending: false });
-    setListaOS(osData || []);
-    const { data: clientesData } = await supabase.from('clientes').select('id, nome').order('nome');
-    setClientes(clientesData || []);
+    const { data: listaOS } = await supabase.from('os').select('*, clientes(nome)').order('id', { ascending: false });
+    const { data: listaClientes } = await supabase.from('clientes').select('id, nome').order('nome');
+    setOrdens(listaOS || []);
+    setClientes(listaClientes || []);
     setLoading(false);
   };
 
-  React.useEffect(() => { buscarDados(); }, []);
+  React.useEffect(() => { carregarDados(); }, []);
+
+  const handleChecklistChange = (campo, valor) => {
+    setChecklist(prev => ({ ...prev, [campo]: valor }));
+  };
 
   const fecharModal = () => {
-    setClienteId(''); setStatus('Orçamento'); setTecnico('jadelson santana souza');
-    setDataInicial(new Date().toISOString().split('T')[0]); setDataFinal('');
-    setGarantiaDias('0'); setTermoGarantia(''); setTipoSenha('Não existe');
-    setDescricaoProduto(''); setDefeito(''); setValorTotal('0.00');
+    setClienteId(''); setTecnicoResponsavel(''); setStatus('orçamento'); setTipoSenha('');
+    setDataInicio(''); setDataFim(''); setGarantiaDias(''); setTermoGarantia(''); setPrecoFechado('');
+    setDescricao(''); setDefeito(''); setObservacao(''); setLaudoTecnico(''); setLaudoUrl('');
+    setArquivoLaudo(null); setChecklist(checklistInicial);
     setOsSendoEditada(null); setModalAberto(false);
   };
 
   const prepararEdicao = (os) => {
-    setOsSendoEditada(os); setClienteId(os.cliente_id || ''); setTecnico(os.tecnico || ''); setStatus(os.status || 'Orçamento'); setDataInicial(os.data_inicial || ''); setDataFinal(os.data_final || ''); setGarantiaDias(os.garantia_dias?.toString() || '0'); setTermoGarantia(os.termo_garantia || ''); setTipoSenha(os.tipo_senha || 'Não existe'); setDescricaoProduto(os.descricao_produto || ''); setDefeito(os.defeito || ''); setValorTotal(os.valor_total || '0.00');
+    setOsSendoEditada(os);
+    setClienteId(os.cliente_id || '');
+    setTecnicoResponsavel(os.tecnico_responsavel || '');
+    setStatus(os.status || 'orçamento');
+    setTipoSenha(os.tipo_senha || '');
+    setDataInicio(os.data_inicio || '');
+    setDataFim(os.data_fim || '');
+    setGarantiaDias(os.garantia_dias || '');
+    setTermoGarantia(os.termo_garantia || '');
+    setPrecoFechado(os.preco_fechado || '');
+    setDescricao(os.descricao || '');
+    setDefeito(os.defeito || '');
+    setObservacao(os.observacao || '');
+    setLaudoTecnico(os.laudo_tecnico || '');
+    setLaudoUrl(os.laudo_url || '');
+    setChecklist({ ...checklistInicial, ...(os.checklist || {}) });
     setModalAberto(true);
-  };
-
-  const abrirGaleria = async (os) => {
-    setOsParaGaleria(os);
-    setCarregandoFotos(true);
-    const { data, error } = await supabase.storage.from('os-fotos').list(`os_${os.id}/`);
-    if (error) {
-      setFotosOS([]);
-    } else {
-      const urls = data.map(file => {
-        const { data: { publicUrl } } = supabase.storage.from('os-fotos').getPublicUrl(`os_${os.id}/${file.name}`);
-        return { name: file.name, url: publicUrl };
-      });
-      setFotosOS(urls);
-    }
-    setCarregandoFotos(false);
-  };
-
-  const uploadFotoOS = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !osParaGaleria) return;
-
-    setSubindoMidia(true);
-    const extensao = file.name.split('.').pop();
-    const nomeArquivo = `${Date.now()}.${extensao}`;
-    const caminhoCompleto = `os_${osParaGaleria.id}/${nomeArquivo}`;
-
-    const { error } = await supabase.storage.from('os-fotos').upload(caminhoCompleto, file);
-    if (!error) {
-      abrirGaleria(osParaGaleria);
-    }
-    setSubindoMidia(false);
-  };
-
-  const deletarFotoOS = async (nomeFoto) => {
-    if (!osParaGaleria) return;
-    const caminhoCompleto = `os_${osParaGaleria.id}/${nomeFoto}`;
-    const { error } = await supabase.storage.from('os-fotos').remove([caminhoCompleto]);
-    if (!error) {
-      abrirGaleria(osParaGaleria);
-    }
   };
 
   const salvarOS = async (e) => {
     e.preventDefault();
-    if (!clienteId) return alert("Selecione um cliente para prosseguir.");
     setEnviando(true);
-    const dadosOS = { 
-      cliente_id: clienteId, tecnico, status, data_inicial: dataInicial, 
-      data_final: dataFinal || null, garantia_dias: parseInt(garantiaDias) || 0, 
-      termo_garantia: termoGarantia, tipo_senha: tipoSenha, 
-      descricao_produto: descricaoProduto, defeito, 
-      valor_total: parseFloat(valorTotal) || 0, valor_faturado: parseFloat(valorTotal) || 0 
-    };
-    
-    if (osSendoEditada) {
-      await supabase.from('os').update(dadosOS).eq('id', osSendoEditada.id);
-    } else {
-      await supabase.from('os').insert([dadosOS]);
+
+    let urlFinalDoArquivo = laudoUrl;
+
+    if (arquivoLaudo) {
+      const fileExt = arquivoLaudo.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `laudos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('os-anexos')
+        .upload(filePath, arquivoLaudo);
+
+      if (!uploadError) {
+        const { data } = supabase.storage.from('os-anexos').getPublicUrl(filePath);
+        urlFinalDoArquivo = data.publicUrl;
+      } else {
+        console.error("Erro no upload do anexo:", uploadError.message);
+      }
     }
-    fecharModal(); buscarDados();
+
+    const dados = {
+      cliente_id: clienteId, tecnico_responsavel: tecnicoResponsavel, status,
+      tipo_senha: tipoSenha, data_inicio: dataInicio ? dataInicio : null,
+      data_fim: dataFim ? dataFim : null, garantia_dias: garantiaDias,
+      termo_garantia: termoGarantia, preco_fechado: precoFechado,
+      descricao, defeito, observacao, laudo_tecnico: laudoTecnico,
+      laudo_url: urlFinalDoArquivo, checklist
+    };
+
+    if (osSendoEditada) {
+      await supabase.from('os').update(dados).eq('id', osSendoEditada.id);
+    } else {
+      await supabase.from('os').insert([dados]);
+    }
+
+    fecharModal();
+    carregarDados();
     setEnviando(false);
   };
 
@@ -688,141 +884,377 @@ const OrdensServico = () => {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-4xl font-bold text-white tracking-tight">Ordens de Serviço</h1>
-          <p className="text-zinc-500 text-sm mt-1">Abertura de ordens, diagnósticos e controle de manutenções.</p>
+          <p className="text-zinc-500 text-sm mt-1">Controle técnico interno, triagem, checklists e emissão de laudos.</p>
         </div>
         <button onClick={() => setModalAberto(true)} className="bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg cursor-pointer">
-          + Nova OS
+          + Nova Ordem de Serviço
         </button>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/60 rounded-2xl overflow-hidden shadow-xl">
         {loading ? (
-          <div className="p-8 text-center text-zinc-500 font-mono text-xs">Acessando banco de ordens...</div>
+          <div className="p-8 text-center text-zinc-500 font-mono text-xs">Carregando ordens de serviço...</div>
         ) : (
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 text-xs uppercase font-semibold">
-                <th className="p-4 w-16">N° OS</th><th className="p-4">Cliente</th><th className="p-4">Equipamento / Defeito</th><th className="p-4">Preço Orçado</th><th className="p-4">Status Atual</th><th className="p-4">Fotos Lab</th><th className="p-4">Ações</th>
+                <th className="p-4">Nº O.S.</th>
+                <th className="p-4">Cliente Requerente</th>
+                <th className="p-4">Técnico</th>
+                <th className="p-4">Status Atual</th>
+                <th className="p-4">Data Início</th>
+                <th className="p-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
-              {listaOS.map((os) => (
+              {ordens.map((os) => (
                 <tr key={os.id} className="hover:bg-zinc-800/20 text-zinc-300">
-                  <td className="p-4 font-mono text-xs text-zinc-500">#00{os.id}</td>
-                  <td className="p-4 font-semibold text-white">{os.clientes?.nome || 'Cliente não identificado'}</td>
-                  <td className="p-4 text-xs text-zinc-400"><span className="font-bold text-zinc-300">{os.descricao_produto}</span><br/>{os.defeito}</td>
-                  <td className="p-4 font-bold text-white font-mono">R$ {parseFloat(os.valor_total).toFixed(2)}</td>
+                  <td className="p-4 font-mono text-white font-bold">#{os.id}</td>
+                  <td className="p-4 font-semibold text-zinc-100">{os.clientes?.nome || 'Cliente não localizado'}</td>
+                  <td className="p-4 text-xs">{os.tecnico_responsavel || 'Não atribuído'}</td>
                   <td className="p-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-black tracking-wider ${os.status === 'Garantia' || os.status === 'Pronto' ? 'bg-[#f4bc06]/10 text-[#f4bc06] border border-amber-500/20' : 'bg-zinc-950 text-zinc-400 border border-zinc-800'}`}>
+                    <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                       {os.status}
                     </span>
                   </td>
-                  <td className="p-4"><button onClick={() => abrirGaleria(os)} className="text-xs bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Mídias</button></td>
-                  <td className="p-4"><button onClick={() => prepararEdicao(os)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">Editar</button></td>
+                  <td className="p-4 text-xs font-mono">{os.data_inicio || '---'}</td>
+                  <td className="p-4">
+                    <button onClick={() => prepararEdicao(os)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">
+                      Gerenciar
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {listaOS.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-zinc-500 text-xs uppercase tracking-wider">Nenhuma ordem de serviço registrada.</td></tr>}
+              {ordens.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-8 text-center text-zinc-500 text-xs uppercase tracking-wider">
+                    Nenhuma O.S. aberta no momento.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* MODAL PRINCIPAL: CADASTRAR OU EDITAR OS */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-3xl rounded-2xl p-6 shadow-2xl my-8 animate-fade-in">
-            <h2 className="text-xl font-bold text-[#f4bc06] mb-5 uppercase tracking-wide text-center">{osSendoEditada ? `Ordem de Serviço Pro N° ${osSendoEditada.id}` : 'Abertura de Ordem de Serviço'}</h2>
-            <form onSubmit={salvarOS} className="space-y-4 text-sm">
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-4xl rounded-2xl p-6 shadow-2xl my-4 max-h-[95vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-[#f4bc06] mb-5 uppercase tracking-wide text-center">
+              {osSendoEditada ? `Gerenciar O.S. #${osSendoEditada.id}` : 'Abertura de Nova Ordem de Serviço'}
+            </h2>
+
+            <form onSubmit={salvarOS} className="space-y-6 text-sm">
+              
+              <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800/60">
+                <span className="text-[10px] font-bold tracking-wider text-amber-500 uppercase block mb-3">Informações de Triagem Inicial</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Cliente Requerente *</label>
+                    <select required value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none">
+                      <option value="">Selecione o Cliente...</option>
+                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Técnico Responsável</label>
+                    <input type="text" placeholder="Nome do Técnico" value={tecnicoResponsavel} onChange={(e) => setTecnicoResponsavel(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Status da O.S.</label>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-white focus:outline-none uppercase text-xs font-bold text-amber-400">
+                      <option value="orçamento">Orçamento</option>
+                      <option value="em andamento">Em Andamento</option>
+                      <option value="aguardando autorização">Aguardando Autorização</option>
+                      <option value="autorizado">Autorizado</option>
+                      <option value="garantia">Garantia</option>
+                      <option value="aguardando peças">Aguardando Peças</option>
+                      <option value="serviço concluído">Serviço Concluído</option>
+                      <option value="sem reparo">Sem Reparo</option>
+                      <option value="abandonados">Abandonados</option>
+                      <option value="faturados">Faturados</option>
+                      <option value="faturado-externo">Faturado-Externo</option>
+                      <option value="entregue-sem reparo">Entregue sem Reparo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Tipo de Senha</label>
+                    <input type="text" placeholder="Padrão, Numérica, PIN" value={tipoSenha} onChange={(e) => setTipoSenha(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Data Início</label>
+                    <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none font-mono text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Data Fim</label>
+                    <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none font-mono text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Garantia (Dias)</label>
+                    <input type="number" placeholder="Ex: 90" value={garantiaDias} onChange={(e) => setGarantiaDias(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Preço Fechado O.S. (R$)</label>
+                    <input type="text" placeholder="0.00" value={precoFechado} onChange={(e) => setPrecoFechado(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white focus:outline-none font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800/60">
+                <span className="text-[10px] font-bold tracking-wider text-amber-500 uppercase block mb-3">Checklist Avançado de Entrada do Hardware</span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Alto-Falante</label>
+                    <select value={checklist.alto_falante} onChange={(e) => handleChecklistChange('alto_falante', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Ligando c/ Dificuldade">Ligando c/ Dificuldade</option>
+                      <option value="Sem Som">Sem Som</option>
+                      <option value="Trelando">Trelando</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Auricular</label>
+                    <select value={checklist.auricular} onChange={(e) => handleChecklistChange('auricular', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Bluetooth</label>
+                    <select value={checklist.bluetooth} onChange={(e) => handleChecklistChange('bluetooth', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Liga mas não encontra">Liga mas não encontra</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Câmera Traseira</label>
+                    <select value={checklist.camera_traseira} onChange={(e) => handleChecklistChange('camera_traseira', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Embaçada">Embaçada</option>
+                      <option value="Não Possui">Não Possui</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Flash</label>
+                    <select value={checklist.flash} onChange={(e) => handleChecklistChange('flash', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Botão Power</label>
+                    <select value={checklist.botao_power} onChange={(e) => handleChecklistChange('botao_power', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Parafusos</label>
+                    <select value={checklist.parafusos} onChange={(e) => handleChecklistChange('parafusos', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Wi-Fi</label>
+                    <select value={checklist.wi_fi} onChange={(e) => handleChecklistChange('wi_fi', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Não Funciona">Não Funciona</option>
+                      <option value="Liga mas não encontra">Liga mas não encontra</option>
+                      <option value="Sinal Fraco">Sinal Fraco</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Microfone</label>
+                    <select value={checklist.microfone} onChange={(e) => handleChecklistChange('microfone', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Baixo">Baixo</option>
+                      <option value="Não Funciona">Não Funciona</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Situação da Carcaça</label>
+                    <select value={checklist.carcaca} onChange={(e) => handleChecklistChange('carcaca', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Arranhada">Arranhada</option>
+                      <option value="Amassada">Amassada</option>
+                      <option value="Quebrada">Quebrada</option>
+                      <option value="Empenada">Empenada</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Vibra Call</label>
+                    <select value={checklist.vibra_call} onChange={(e) => handleChecklistChange('vibra_call', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Não Possui">Não Possui</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Tela</label>
+                    <select value={checklist.tela} onChange={(e) => handleChecklistChange('tela', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Quebrada">Quebrada</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Bateria</label>
+                    <select value={checklist.bateria} onChange={(e) => handleChecklistChange('bateria', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Funcionando">Funcionando</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Câmera Frontal</label>
+                    <select value={checklist.camera_frontal} onChange={(e) => handleChecklistChange('camera_frontal', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Embaçada">Embaçada</option>
+                      <option value="Não Possui">Não Possui</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Conector de Carga</label>
+                    <select value={checklist.conector_carga} onChange={(e) => handleChecklistChange('conector_carga', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Botão Home</label>
+                    <select value={checklist.botao_home} onChange={(e) => handleChecklistChange('botao_home', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Botão de Volume</label>
+                    <select value={checklist.botao_volume} onChange={(e) => handleChecklistChange('botao_volume', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Sensor Proximidade</label>
+                    <select value={checklist.sensor_proximidade} onChange={(e) => handleChecklistChange('sensor_proximidade', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Pegando Chip</label>
+                    <select value={checklist.pegando_chip} onChange={(e) => handleChecklistChange('pegando_chip', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-zinc-400 font-semibold mb-0.5">Biometria / Face ID</label>
+                    <select value={checklist.biometria_faceid} onChange={(e) => handleChecklistChange('biometria_faceid', e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-1.5 text-white focus:outline-none text-[11px]">
+                      <option value="Não Testado">Não Testado</option>
+                      <option value="Funcionando">Funcionando</option>
+                      <option value="Com Defeito">Com Defeito</option>
+                      <option value="Não Existe">Não Existe</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Cliente Requerente *</label>
-                  <select required value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500">
-                    <option value="">Selecione o titular...</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  </select>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Descrição Detalhada do Aparelho</label>
+                  <textarea rows="3" placeholder="Modelo, cor, marcas de uso externas..." value={descricao} onChange={(e) => setDescricao(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white text-xs focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Técnico Responsável *</label>
-                  <input type="text" required value={tecnico} onChange={(e) => setTecnico(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Defeito Relatado / Constatado</label>
+                  <textarea rows="3" placeholder="O que o cliente relatou e o que foi visto na triagem..." value={defeito} onChange={(e) => setDefeito(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white text-xs focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Observações Internas</label>
+                  <textarea rows="3" placeholder="Notas internas para controle da bancada..." value={observacao} onChange={(e) => setObservacao(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white text-xs focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Termo de Garantia Customizado</label>
+                  <textarea rows="3" placeholder="Regras específicas de garantia para esta O.S...." value={termoGarantia} onChange={(e) => setTermoGarantia(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white text-xs focus:outline-none" />
+                </div>
+
+                <div className="md:col-span-2 bg-zinc-950 border border-zinc-800 p-4 rounded-xl space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-amber-500 uppercase mb-1">Laudo Técnico Final</label>
+                    <textarea rows="4" placeholder="Parecer técnico final detalhado sobre o conserto..." value={laudoTecnico} onChange={(e) => setLaudoTecnico(e.target.value)} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 text-white text-xs focus:outline-none" />
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-zinc-900 p-3 rounded-xl border border-zinc-800/60">
+                    <div>
+                      <label className="block text-xs font-bold text-zinc-400 uppercase mb-1">Anexar Documento / Imagem do Laudo</label>
+                      <input type="file" onChange={(e) => setArquivoLaudo(e.target.files[0])} className="text-xs text-zinc-400 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 cursor-pointer" />
+                    </div>
+                    {laudoUrl && (
+                      <a href={laudoUrl} target="_blank" rel="noreferrer" className="text-xs text-amber-400 hover:underline font-mono bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
+                        📄 Ver Arquivo Anexado Atual
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Status Triagem</label>
-                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500">
-                    <option value="Orçamento">Orçamento</option><option value="Em Manutenção">Em Manutenção</option><option value="Pronto">Pronto</option><option value="Garantia">Garantia</option><option value="Faturado">Faturado</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Data Entrada</label>
-                  <input type="date" required value={dataInicial} onChange={(e) => setDataInicial(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Data Saída</label>
-                  <input type="date" value={dataFinal} onChange={(e) => setDataFinal(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Garantia (Dias)</label>
-                  <input type="number" value={garantiaDias} onChange={(e) => setGarantiaDias(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-500" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Aparelho / Acessórios Deixados</label>
-                  <textarea rows="2" placeholder="Ex: Samsung S23 Ultra, cor preta, capa protetora, sem carregador." value={descricaoProduto} onChange={(e) => setDescricaoProduto(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white resize-none focus:outline-none focus:border-amber-500"></textarea>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Defeito Relatado / Constatado</label>
-                  <textarea rows="2" placeholder="Ex: Vidro quebrado, display piscando verde." value={defeito} onChange={(e) => setDefeito(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2 text-white resize-none focus:outline-none focus:border-amber-500"></textarea>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Preço Fechado O.S. (R$)</label>
-                  <input type="number" step="0.01" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800 mt-6">
-                <button type="button" onClick={fecharModal} className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-white font-semibold transition-colors cursor-pointer">Cancelar</button>
-                <button type="submit" disabled={enviando} className="px-5 py-2.5 bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-black rounded-xl transition-colors cursor-pointer">{enviando ? 'Gravando dados...' : 'Salvar Ficha OS'}</button>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+                <button type="button" onClick={fecharModal} className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-white font-semibold transition-colors cursor-pointer">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={enviando} className="px-5 py-2.5 bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-black rounded-xl transition-colors cursor-pointer">
+                  {enviando ? 'Salvando Registro...' : 'Salvar Ordem de Serviço'}
+                </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* SEGUNDO MODAL: ARQUIVOS E EVIDÊNCIAS VISUAIS DE LABORATÓRIO */}
-      {osParaGaleria && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-4xl rounded-2xl p-6 shadow-2xl relative">
-            <button onClick={() => setOsParaGaleria(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors cursor-pointer"><X size={20} /></button>
-            <h2 className="text-xl font-bold uppercase tracking-tight text-[#f4bc06]">Inspeção Visual da O.S. #{osParaGaleria.id}</h2>
-            <p className="text-xs text-zinc-500 uppercase font-bold mt-1 tracking-wide">{osParaGaleria.descricao_produto} — {osParaGaleria.defeito}</p>
-            
-            <div className="my-6 bg-zinc-950 p-4 rounded-xl border border-zinc-800/80 flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Fazer upload de nova foto do aparelho desmontado ou defeito:</span>
-              <label className="bg-[#f4bc06] hover:bg-amber-500 text-zinc-950 font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-colors">
-                {subindoMidia ? <Loader2 className="animate-spin" size={14} /> : <Upload size={14} />}
-                {subindoMidia ? 'Enviando...' : 'Adicionar Foto'}
-                <input type="file" accept="image/*" onChange={uploadFotoOS} disabled={subindoMidia} className="hidden" />
-              </label>
-            </div>
-
-            {carregandoFotos ? (
-              <div className="py-20 text-center text-zinc-500 font-mono text-xs flex items-center justify-center"><Loader2 className="animate-spin text-amber-500 mr-2" size={16} /> INDEXANDO ARQUIVOS DA OS...</div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[50vh] overflow-y-auto pr-1">
-                {fotosOS.map((f, i) => (
-                  <div key={i} className="group relative bg-zinc-950 rounded-xl overflow-hidden border border-zinc-800/80 aspect-square">
-                    <img src={f.url} alt="Evidência" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button onClick={() => deletarFotoOS(f.name)} className="bg-red-600 hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Deletar</button>
-                    </div>
-                  </div>
-                ))}
-                {fotosOS.length === 0 && <div className="col-span-full py-16 text-center text-zinc-600 uppercase font-bold text-xs tracking-widest">Nenhum registro de imagem anexado a esta ordem.</div>}
-              </div>
-            )}
           </div>
         </div>
       )}
