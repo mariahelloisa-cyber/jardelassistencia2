@@ -6,7 +6,8 @@ import { supabase } from './supabaseClient';
 import { 
   Users, Package, Wrench, Smartphone, Home,
   ShieldCheck, ShoppingCart, DollarSign, 
-  ClipboardList, Monitor, LogOut, Upload, Loader2, X, Lock
+  ClipboardList, Monitor, LogOut, Upload, Loader2, X, Lock,
+  Eye, EyeOff, Trash2
 } from 'lucide-react';
 
 // Páginas externas importadas
@@ -225,6 +226,7 @@ const Clientes = () => {
   const [cidade, setCidade] = React.useState('');
   const [estado, setEstado] = React.useState('');
   const [buscandoCep, setBuscandoCep] = React.useState(false);
+  const [mostrarSenha, setMostrarSenha] = React.useState(false);
 
   const buscarClientes = async () => {
     setLoading(true);
@@ -238,7 +240,7 @@ const Clientes = () => {
   const limparCampos = () => {
     setNome(''); setCpfCnpj(''); setTipoCliente('consumidor'); setTelefone(''); setCelular('');
     setEmail(''); setSenha(''); setCep(''); setRua(''); setNumero(''); setComplemento('');
-    setBairro(''); setCidade(''); setEstado('');
+    setBairro(''); setCidade(''); setEstado(''); setMostrarSenha(false);
   };
 
   const fecharModal = () => {
@@ -300,6 +302,13 @@ const Clientes = () => {
     setEnviando(false);
   };
 
+  const excluirCliente = async (id, nomeCliente) => {
+    if (window.confirm(`Tem certeza que deseja excluir "${nomeCliente}"? Essa ação não pode ser desfeita.`)) {
+      await supabase.from('clientes').delete().eq('id', id);
+      buscarClientes();
+    }
+  };
+
   return (
     <div className="p-10">
       <div className="flex justify-between items-center mb-8">
@@ -331,7 +340,12 @@ const Clientes = () => {
                   <td className="p-4 font-mono text-xs">{cliente.celular || cliente.telefone || '---'}</td>
                   <td className="p-4 text-zinc-400 text-xs">{cliente.email || '---'}</td>
                   <td className="p-4 text-zinc-400 text-xs">{cliente.cidade ? `${cliente.cidade}/${cliente.estado || ''}` : '---'}</td>
-                  <td className="p-4"><button onClick={() => prepararEdicao(cliente)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">Editar</button></td>
+                  <td className="p-4 flex gap-3 items-center">
+                    <button onClick={() => prepararEdicao(cliente)} className="text-[#f4bc06] font-semibold hover:underline cursor-pointer">Editar</button>
+                    <button onClick={() => excluirCliente(cliente.id, cliente.nome)} className="text-red-500 hover:text-red-400 cursor-pointer" title="Excluir cliente">
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {clientes.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-zinc-500 text-xs uppercase tracking-wider">Nenhum cliente cadastrado.</td></tr>}
@@ -381,7 +395,23 @@ const Clientes = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 tracking-wide">Senha</label>
-                  <input type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500" />
+                  <div className="relative">
+                    <input
+                      type={mostrarSenha ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 pr-11 text-white focus:outline-none focus:border-amber-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setMostrarSenha(!mostrarSenha)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
